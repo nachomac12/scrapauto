@@ -1,0 +1,67 @@
+version: "3.8"
+services:
+  backend:
+    build:
+      context: ./
+      dockerfile: ./backend/Dockerfile
+    image: backend-prd:latest # Name the production image
+    container_name: backend-prd
+    expose:
+      - "8100"
+    volumes:
+      - ./backend:/code
+    depends_on:
+      - mongo
+      - chroma
+    env_file:
+      - .env
+    networks:
+      - autos-network
+    command:
+      [
+        "pipenv",
+        "run",
+        "uvicorn",
+        "app:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8100",
+        "--workers",
+        "16",
+      ]
+
+  mongo:
+    image: mongo
+    container_name: mongo-prd
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_DB_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_DB_PASS}
+    ports:
+      - "27017:27017"
+    networks:
+      - autos-network
+
+  chroma:
+    image: ghcr.io/chroma-core/chroma
+    container_name: chroma-prd
+    expose:
+      - "8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ALLOW_RESET=FALSE
+      - CHROMA_WORKERS=1
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - autos-network
+
+volumes:
+  mongo_data:
+  chroma_data:
+
+networks:
+  autos-network:
+    driver: bridge
