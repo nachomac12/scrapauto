@@ -56,6 +56,10 @@ class CarParserAgent:
 
     async def parse_car_infos(self, offset=0, limit=10) -> List[SimpleAuto]:
         car_infos = autos_crud.get_raw_cars_not_extracted(offset, limit)
-        return await asyncio.gather(
-            *[self.parse_car_info(car_info.url) for car_info in car_infos]
-        )
+        
+        simples_autos = []
+        for car_info_raw in car_infos:
+            car_info = await self._extract_car_info(car_info_raw.text)
+            simples_autos.append(self._save_extracted_car_info(car_info))
+
+        return simples_autos
