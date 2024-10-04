@@ -3,7 +3,7 @@ import logging
 from typing import List
 from openai import AsyncOpenAI
 from .schemas import SimpleAuto
-from crud_auto import autos_crud
+from infoparser.crud_auto import autos_crud
 from dotenv import load_dotenv
 import os
 
@@ -35,7 +35,7 @@ class CarParserAgent:
             model=MODEL,
             messages=[
                 {"role": "system", "content": final_prompt},
-                {"role": "user", "content": q},
+                {"role": "user", "content": car_info},
             ],
             response_format=SimpleAuto,
             temperature=TEMPERATURE,
@@ -57,5 +57,5 @@ class CarParserAgent:
     async def parse_car_infos(self, offset=0, limit=10) -> List[SimpleAuto]:
         car_infos = autos_crud.get_raw_cars_not_extracted(offset, limit)
         return await asyncio.gather(
-            *[self.parse_car_info(car_info._id) for car_info in car_infos]
+            *[self.parse_car_info(car_info.url) for car_info in car_infos]
         )

@@ -1,15 +1,14 @@
-version: "3.8"
 services:
   backend:
     build:
       context: ./
-      dockerfile: ./backend/Dockerfile
+      dockerfile: Dockerfile
     image: backend-prd:latest # Name the production image
     container_name: backend-prd
-    expose:
-      - "8100"
+    ports:
+      - "8100:8100"
     volumes:
-      - ./backend:/code
+      - .:/code
     depends_on:
       - mongo
       - chroma
@@ -19,7 +18,7 @@ services:
       - autos-network
     command:
       [
-        "pipenv",
+        "uv",
         "run",
         "uvicorn",
         "app:app",
@@ -28,7 +27,7 @@ services:
         "--port",
         "8100",
         "--workers",
-        "16",
+        "1",
       ]
 
   mongo:

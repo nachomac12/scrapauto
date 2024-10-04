@@ -13,8 +13,7 @@ dotenv.load_dotenv()
 MONGO_HOST = os.getenv("MONGO_HOST")
 MONGO_DB_USER = os.getenv("MONGO_DB_USER")
 MONGO_DB_PASS = os.getenv("MONGO_DB_PASS")
-print(f"os.getenv('MONGO_TLS_ENABLED'), {os.getenv('MONGO_TLS_ENABLED')}")
-MONGO_TLS_ENABLED = os.getenv("MONGO_TLS_ENABLED")
+MONGO_TLS_ENABLED = True if os.getenv("MONGO_TLS_ENABLED", 0) == 1 else False
 DB_URI = "mongodb://{}:{}@{}:27017".format(MONGO_DB_USER, MONGO_DB_PASS, MONGO_HOST)
 DB_NAME = os.getenv("AUTOS_DATABASE_DB")
 

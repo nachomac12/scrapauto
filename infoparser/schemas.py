@@ -4,12 +4,12 @@ from typing import Optional
 
 
 class AutoRaw(BaseModel):
-    text = Field(title="Texto del anuncio")
+    text: str = Field(title="Texto del anuncio")
     extracted: bool = Field(title="Si ya fue extraído o no", default=False)
 
 
 class AutoRawDB(BaseModel):
-    _id: str = Field(title="ID de la base de datos")
+    id: str = Field(title="ID de la base de datos", alias="_id")
     created_at: datetime = Field(
         title="Fecha de creación",
         description="Fecha en la que se creó el registro",
@@ -60,7 +60,7 @@ class SimpleAuto(BaseModel):
 
 
 class SimpleAutoDB(SimpleAuto):
-    _id: str = Field(title="ID de la base de datos")
+    id: str = Field(title="ID de la base de datos", alias="_id")
     extracted_at: datetime = Field(
         title="Fecha de extracción",
         description="Fecha en la que se extrajo la información",

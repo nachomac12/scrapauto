@@ -66,7 +66,7 @@ async def extract_car_info(request: CarInfoRequest):
 
 # Define the main route
 @app.post("/extract-all", response_model=CarInfosResponse)
-async def extract_car_info(offset: 0, limit: int = 10):
+async def extract_car_info(offset: int = 0, limit: int = 10):
     # Initialize parser agent
     parser_agent = CarParserAgent()
 
