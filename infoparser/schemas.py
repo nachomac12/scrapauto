@@ -26,6 +26,10 @@ class SimpleAuto(BaseModel):
         title="Fuente del anuncio",
         description="Pagina web de donde se extrajo el anuncio, por ejemplo mercadolibre.com.ar",
     )
+    external_id: str = Field(
+        title="ID del anuncio en la fuente",
+        description="ID del anuncio en la fuente, por ejemplo en mercadolibre.com.ar es el número que está al final de la URL",
+    )
     marca: str = Field(title="Marca del auto")
     modelo: str = Field(title="Modelo del auto")
     year: str = Field(title="Año del auto")
@@ -61,10 +65,6 @@ class SimpleAuto(BaseModel):
 
 class SimpleAutoDB(SimpleAuto):
     id: str = Field(title="ID de la base de datos", alias="_id")
-    extracted_at: datetime = Field(
-        title="Fecha de extracción",
-        description="Fecha en la que se extrajo la información",
-    )
     created_at: datetime = Field(
         title="Fecha de creación",
         description="Fecha en la que se creó el registro",
@@ -72,8 +72,4 @@ class SimpleAutoDB(SimpleAuto):
     updated_at: datetime = Field(
         title="Fecha de actualización",
         description="Fecha en la que se actualizó el registro",
-    )
-    raw_source_id: str = Field(
-        title="ID de la fuente cruda",
-        description="ID de la fuente cruda de donde se extrajo la información",
     )

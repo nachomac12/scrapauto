@@ -1,34 +1,50 @@
-import requests
+import aiohttp
+import asyncio
+from typing import Optional
 from bs4 import BeautifulSoup
 
 from logger import setup_logger
+
+from infoparser.parser_agent import CarParserAgent
 
 logger = setup_logger(__name__)
 
 
 class AutocosmosScraper:
-    def get_links(self, index = 1):
+    async def get_links(self, index = 1):
         url = f"https://www.autocosmos.com.ar/auto/usado?seccion=precio-final&pidx={index}"
-        page_content = requests.get(url).text
-        soup = BeautifulSoup(page_content, "html.parser")
-        links = soup.find_all("a", itemprop="url")
-        return [link.get("href") for link in links]
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                page_content = await response.text()
+                soup = BeautifulSoup(page_content, "html.parser")
+                links = soup.find_all("a", itemprop="url")
+                return [link.get("href") for link in links]
 
-    def run(self):
+    async def run(self, qty: Optional[int] = None):
         scraped_data = []
-        for index in range(1, 10):
-            links = self.get_links(index)
+        counter = 0
+        while True:
+            links = await self.get_links(counter + 1)
             for link in links:
-                try:
-                    vehicle_data = self._extract_vehicle_data(link)
-                except Exception as e:
-                    logger.error(f"Error extracting vehicle data: {e}")
+                vehicle_data = await self._extract_vehicle_data(link)
+                logger.debug(vehicle_data)
+                if not vehicle_data:
+                    return scraped_data
+                counter += 1
                 scraped_data.append(vehicle_data)
+            if qty and counter >= qty:
+                break
+            await asyncio.sleep(1)
         return scraped_data
 
-    def _extract_vehicle_data(self, link):
+    async def _extract_vehicle_data(self, link):
+        parser_agent = CarParserAgent()
         link = "https://www.autocosmos.com.ar" + link
-        page_content = requests.get(link).text
-        soup = BeautifulSoup(page_content, "html.parser")
-        article = soup.find("article")
-        return str(article)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(link) as response:
+                page_content = await response.text()
+                soup = BeautifulSoup(page_content, "html.parser")
+                article = soup.find("article")
+                if not article:
+                    return None
+                return await parser_agent.parse_car_info(str(article))

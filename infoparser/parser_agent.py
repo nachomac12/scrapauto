@@ -1,15 +1,16 @@
-import asyncio
 import logging
-from typing import List
+from typing import List, Optional
 from openai import AsyncOpenAI
+
+from logger import setup_logger
 from .schemas import SimpleAuto
-from infoparser.crud_auto import autos_crud
+from infoparser.crud_auto import init_db
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 MODEL = "gpt-4o-2024-08-06"
 TEMPERATURE = os.getenv("TEMPERATURE_CONVERTIDOR_PROMPT")
@@ -38,7 +39,7 @@ class CarParserAgent:
                 {"role": "user", "content": car_info},
             ],
             response_format=SimpleAuto,
-            temperature=TEMPERATURE,
+            temperature=float(TEMPERATURE),
         )
 
         # Extract the response from the completion object
@@ -47,19 +48,23 @@ class CarParserAgent:
         return event
 
     async def _save_extracted_car_info(self, car_info: SimpleAuto) -> SimpleAuto:
-        return autos_crud.insert_car(SimpleAuto)
+        autos_crud = await init_db()
+        if await autos_crud.exists_car(car_info):
+            logger.info(f"Car with external_id {car_info.external_id} already exists")
+            return car_info
+        return await autos_crud.insert_car(car_info)
 
-    async def parse_car_info(self, car_info_id: str) -> SimpleAuto:
-        car_raw = autos_crud.get_raw_car_by_id(car_info_id)
-        car_info = await self._extract_car_info(car_raw)
-        return await self._save_extracted_car_info(car_info)
+    async def parse_car_info(self, car_info: str) -> SimpleAuto:
+        car = await self._extract_car_info(car_info)
+        return await self._save_extracted_car_info(car)
 
     async def parse_car_infos(self, offset=0, limit=10) -> List[SimpleAuto]:
-        car_infos = autos_crud.get_raw_cars_not_extracted(offset, limit)
+        autos_crud = await init_db()
+        car_infos = await autos_crud.get_raw_cars_not_extracted(offset, limit)
         
         simples_autos = []
         for car_info_raw in car_infos:
             car_info = await self._extract_car_info(car_info_raw.text)
-            simples_autos.append(self._save_extracted_car_info(car_info))
+            simples_autos.append(await self._save_extracted_car_info(car_info))
 
         return simples_autos
