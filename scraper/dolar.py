@@ -12,5 +12,5 @@ async def get_dolar_blue_value() -> DolarValues:
             soup = BeautifulSoup(response_text, 'html.parser')
             dolar_values = soup.find('div', class_='tile dolar')
             # Send the dolar values to DolarParserAgent
-            dolar_values = DolarParserAgent()._extract_dolar_info(dolar_values)
+            dolar_values = await DolarParserAgent()._extract_dolar_info(str(dolar_values))
     return dolar_values

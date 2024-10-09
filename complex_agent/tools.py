@@ -57,11 +57,11 @@ async def aget_car_attributes(
     # Paso 2: Por cada atributo detectado, buscar en la base de datos todos los posibles valores para ese atributo
     for key in attributes.keys():
         values = await db.get_field_unique_values(key)
-        attributes[key]["possible_values"] = values  # Corrected typo from posible_values to possible_values
-    ret_val = ""
-    for key, values in attributes.items():
-        ret_val += f"{key}: {values}\n"
-    return ret_val
+        attributes[key][
+            "possible_values"
+        ] = values  # Corrected typo from posible_values to possible_values
+
+    return attributes
 
 async def aget_price_range(atributos: dict) -> Tuple[float, float]:
     """
@@ -89,7 +89,7 @@ async def aget_price_range(atributos: dict) -> Tuple[float, float]:
         if len(values) == 0:
             continue
         filter[key] = {"$in": values}
-        
+
     if not filter:
         return 0.0, 0.0
 
@@ -98,14 +98,57 @@ async def aget_price_range(atributos: dict) -> Tuple[float, float]:
     print(filter)
     print("-" * 20)
     cars = await db.get_cars_by_filter(filter)
-    prices = [car.precio for car in cars]
+    original_prices = [
+        {"value": car.precio, "moneda": car.moneda, "id": car.id} for car in cars
+    ]
 
-    if not prices:
+    if not original_prices:
         return 0.0, 0.0  # Return a default range if no prices are found
 
-    return min(prices), max(prices)
+    # Dolar price:
+    dolar_values: DolarValues = await get_dolar_blue_value()
 
+    prices_ars = []
+    prices_usd = []
+    # For price dict in prices, if moneda is USD, convert to ARS using dolar_values.blue
+    for price_dict in original_prices:
+        if price_dict["moneda"] == "USD":
+            prices_usd.append(price_dict)
+            converted_price_dict = price_dict.copy()
+            converted_price_dict["moneda"] = "ARS"
+            converted_price_dict["value"] = price_dict["value"] * float(
+                dolar_values.blue
+            )
+            prices_ars.append(converted_price_dict)
+        elif price_dict["moneda"] == "ARS":
+            prices_ars.append(price_dict)
+            converted_price_dict = price_dict.copy()
+            converted_price_dict["moneda"] = "USD"
+            converted_price_dict["value"] = price_dict["value"] / float(
+                dolar_values.blue
+            )
+            prices_usd.append(converted_price_dict)
+        else:
+            raise ValueError(f"Moneda no reconocida: {price_dict['moneda']}")
+        
+    # Get the price_dict for the min value and max value
+    min_price_dict_ars = min(prices_ars, key=lambda x: x["value"])
+    max_price_dict_ars = max(prices_ars, key=lambda x: x["value"])
 
-async def aget_dolar_blue_value(rango_precio: Tuple[float, float]) -> DolarValues:
-    """Transforma un rango de precio en un rango de precio en dolares"""
-    return await get_dolar_blue_value()
+    min_price_dict_usd = min(prices_usd, key=lambda x: x["value"])
+    max_price_dict_usd = max(prices_usd, key=lambda x: x["value"])
+
+    return {
+        "min_price_value_ars": min_price_dict_ars["value"],
+        "min_price_currency_ars": min_price_dict_ars["moneda"],
+        "min_price_car_id_ars": min_price_dict_ars["id"],
+        "max_price_value_ars": max_price_dict_ars["value"],
+        "max_price_currency_ars": max_price_dict_ars["moneda"],
+        "max_price_car_id_ars": max_price_dict_ars["id"],
+        "min_price_value_usd": min_price_dict_usd["value"],
+        "min_price_currency_usd": min_price_dict_usd["moneda"],
+        "min_price_car_id_usd": min_price_dict_usd["id"],
+        "max_price_value_usd": max_price_dict_usd["value"],
+        "max_price_currency_usd": max_price_dict_usd["moneda"],
+        "max_price_car_id_usd": max_price_dict_usd["id"],
+    }

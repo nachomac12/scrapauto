@@ -80,9 +80,9 @@ class SimpleAutoDB(SimpleAuto):
 
 class DolarValues(BaseModel):
     """Valores del dolar para la venta."""
-    blue: str = Field(title="Valor del dólar blue")
-    oficial: str = Field(title="Valor del dólar oficial")
-    mep: str = Field(title="Valor del dólar MEP/Bolsa")
-    contado_con_liqui: str = Field(title="Valor del dólar contado con liqui")
-    cripto: str = Field(title="Valor del dólar en criptomonedas")
-    tarjeta: str = Field(title="Valor del dólar en tarjeta")
+    blue: Decimal = Field(title="Valor del dólar blue")
+    oficial: Decimal = Field(title="Valor del dólar oficial")
+    mep: Decimal = Field(title="Valor del dólar MEP/Bolsa")
+    contado_con_liqui: Decimal = Field(title="Valor del dólar contado con liqui")
+    cripto: Decimal = Field(title="Valor del dólar en criptomonedas")
+    tarjeta: Decimal = Field(title="Valor del dólar en tarjeta")
