@@ -3,12 +3,13 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile
-    image: backend-prd:latest # Name the production image
+    image: backend-prd:latest
     container_name: backend-prd
     ports:
       - "8100:8100"
     volumes:
-      - .:/code
+      - .:/code  # Monta el directorio actual en /code en el contenedor
+      - /code/.venv  # Monta un volumen anónimo sobre /code/.venv en el contenedor
     depends_on:
       - mongo
       - chroma
