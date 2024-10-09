@@ -6,6 +6,7 @@ from .schemas import SimpleAuto, SimpleAutoDB, AutoRaw
 import dotenv
 import os
 from bson import ObjectId
+from typing import Any
 
 
 dotenv.load_dotenv()
@@ -13,8 +14,9 @@ dotenv.load_dotenv()
 MONGO_HOST = os.getenv("MONGO_HOST")
 MONGO_DB_USER = os.getenv("MONGO_DB_USER")
 MONGO_DB_PASS = os.getenv("MONGO_DB_PASS")
+MONGO_PORT = os.getenv("MONGO_PORT")
 MONGO_TLS_ENABLED = True if os.getenv("MONGO_TLS_ENABLED", "0") == "1" else False
-DB_URI = f"mongodb://{MONGO_DB_USER}:{MONGO_DB_PASS}@{MONGO_HOST}:27017"
+DB_URI = f"mongodb://{MONGO_DB_USER}:{MONGO_DB_PASS}@{MONGO_HOST}:{MONGO_PORT}"
 DB_NAME = os.getenv("AUTOS_DATABASE_DB")
 
 logger = logging.getLogger(__name__)
@@ -86,6 +88,21 @@ class AutoDataBaseCRUD:
     
     async def close_connection(self):
         self.db.client.close()
+
+    async def get_field_unique_values(self, field: str) -> List[Any]:
+        cursor = self.autos_collection.find({}, {field: 1})
+        values = set()
+        async for car in cursor:
+            if field in car:
+                values.add(car[field])
+        return list(values)
+    
+    async def get_cars_by_filter(self, filter: dict) -> List[SimpleAutoDB]:
+        cursor = self.autos_collection.find(filter)
+        cars = []
+        async for car in cursor:
+            cars.append(SimpleAutoDB.model_validate(car))
+        return cars
     
 
 async def init_db():

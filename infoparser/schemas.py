@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from pydantic import BaseModel, Field
 from typing import Optional
 
@@ -21,6 +22,8 @@ class AutoRawDB(BaseModel):
 
 
 class SimpleAuto(BaseModel):
+    precio: Decimal = Field(title="Precio del auto")
+    moneda: str = Field(title="Moneda del precio. Si no está especificada, asumir ARS")
     url: str = Field(title="URL del anuncio")
     source: str = Field(
         title="Fuente del anuncio",
