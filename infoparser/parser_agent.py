@@ -3,7 +3,7 @@ from typing import List, Optional
 from openai import AsyncOpenAI
 
 from logger import setup_logger
-from .schemas import SimpleAuto
+from .schemas import SimpleAuto, DolarValues
 from infoparser.crud_auto import init_db
 from dotenv import load_dotenv
 import os
@@ -15,6 +15,28 @@ logger = setup_logger(__name__)
 MODEL = "gpt-4o-2024-08-06"
 TEMPERATURE = os.getenv("TEMPERATURE_CONVERTIDOR_PROMPT")
 logger.info(f"Using LLM model: {MODEL}")
+
+
+class DolarParserAgent:
+    def __init__(self, base_prompt="Extraé la información para el valor de venta del dolar en el siguiente texto."):
+        self.base_prompt = base_prompt
+
+    async def _extract_dolar_info(self, dolar_info: str) -> DolarValues:
+        final_prompt = self.base_prompt
+
+        client = AsyncOpenAI()
+
+        completion = await client.beta.chat.completions.parse(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": final_prompt},
+                {"role": "user", "content": dolar_info},
+            ],
+            response_format=DolarValues,
+            temperature=float(TEMPERATURE),
+        )
+
+        return completion.choices[0].message.parsed
 
 
 class CarParserAgent:

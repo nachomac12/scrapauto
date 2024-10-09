@@ -3,7 +3,7 @@ import os
 import re
 import logging
 from typing import List, Optional
-
+import asyncio
 
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.runnables import ConfigurableFieldSpec
@@ -15,6 +15,8 @@ from langchain.schema import Document
 import json
 from complex_agent.tools import aget_car_attributes, aget_price_range
 from langchain_openai import ChatOpenAI
+
+from infoparser.crud_auto import MongoDBChatMessageHistory
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +34,12 @@ class ComplexAgent:
         self.tools = [
             StructuredTool.from_function(
                 coroutine=aget_car_attributes,
-                name="Get Car Attributes Values",
+                name="get_car_attributes",
                 handle_tool_error=True,
             ),
             StructuredTool.from_function(
                 coroutine=aget_price_range,
-                name="Get Price Range from attribute values",
+                name="get_cars_price_range",
                 handle_tool_error=True,
             ),
         ]
@@ -53,7 +55,7 @@ EJEMPLO:
 Si te preguntan "rango de precios de un Toyota Corolla 2020",
 1) primero llamar a la tool "Get Car Attributes Values" con atributos ["marca", "modelo", "year"].
 2) De los posibles valores de cada atributo, filtrar los que interesan de acuerdo a la query del usuario. Por ejemplo marca solo nos interesa "Toyota" u otras formas escritas de la misma palabra, como "TOYOTA".
-3) Por último, llamar "Get Price Range from attribute values" con los atributos y valores que nos interesan. Por ejemplo {"marca": ["Toyota", "TOYOTA"], "modelo": ["Corolla"], "year": ["2020"]}.
+3) Por último, llamar "Get Price Range from attribute values" con los atributos y valores que nos interesan. Por ejemplo "marca": ["Toyota", "TOYOTA"], "modelo": ["Corolla"], "year": ["2020"].
 """
 
         base_prompt += f"\n La fecha de hoy es {datetime.today().strftime('%Y-%m-%d')}. Todas las referencias de tiempo que mencione el usuario deben ser calculadas a partir de esta fecha. Todo lo que haya pasado antes de hoy, se debe contar en pasado y aclarar la fecha en la que esté situado el hecho. Si el usuario no menciona ningún marco de tiempo específico, responde al día de hoy."
@@ -78,7 +80,7 @@ Si te preguntan "rango de precios de un Toyota Corolla 2020",
 
         self.runnable = RunnableWithMessageHistory(
             executor,
-            crud.get_chat_history,
+            MongoDBChatMessageHistory,
             input_messages_key="input",
             history_messages_key="chat_history",
             history_factory_config=[

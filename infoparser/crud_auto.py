@@ -1,13 +1,24 @@
 import logging
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from datetime import datetime, timezone
-from typing import Optional, List
+from datetime import datetime, timezone, timedelta
+from typing import Optional, List, Union
 from .schemas import SimpleAuto, SimpleAutoDB, AutoRaw
 import dotenv
 import os
 from bson import ObjectId
 from typing import Any
-
+from pymongo import MongoClient, errors
+import pymongo
+from langchain_core.messages import (
+    BaseMessage,
+    SystemMessage,
+    messages_from_dict,
+    message_to_dict,
+)
+import uuid
+from urllib.parse import urlencode
+from langchain_core.chat_history import BaseChatMessageHistory
+import json
 
 dotenv.load_dotenv()
 
@@ -101,8 +112,188 @@ class AutoDataBaseCRUD:
         cursor = self.autos_collection.find(filter)
         cars = []
         async for car in cursor:
+            car["_id"] = str(car["_id"])  # Convert _id to string
             cars.append(SimpleAutoDB.model_validate(car))
         return cars
+    
+    def get_chat_history(cls, conversation_id=None, user_id=None):
+        params = {
+            "tls": "true" if MONGO_TLS_ENABLED else "false",
+            "tlsAllowInvalidCertificates": "true",
+            "retryWrites": "false",
+        }
+        return MongoDBChatMessageHistory(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            connection_string=f"{cls.DB_URI}?{urlencode(params)}",
+            database_name=cls.DB_NAME,
+        )
+     
+        
+class MongoDBChatMessageHistory(BaseChatMessageHistory):
+    """Chat message history that stores history in MongoDB."""
+
+    DEFAULT_COLLECTION_NAME = "conversations"
+    CONTEXT_HOURS = 24
+    # LIMIT = 15
+
+    def __init__(
+        self,
+        conversation_id: str,
+        user_id: str,
+    ):
+        self.conversation_id = conversation_id
+        self.user_id = user_id
+
+        params = {
+            "tls": "true" if MONGO_TLS_ENABLED else "false",
+            "tlsAllowInvalidCertificates": "true",
+            "retryWrites": "false",
+        }
+        self.connection_string = f"{DB_URI}?{urlencode(params)}"
+        try:
+            self.client: MongoClient = MongoClient(self.connection_string)
+        except errors.ConnectionFailure as error:
+            logger.error(error)
+
+        self.db = self.client[DB_NAME]
+        self.collection = self.db[self.DEFAULT_COLLECTION_NAME]
+        self.collection.create_index("ConversationId")
+        self.collection.create_index("UserId")
+
+    def get_last_message_for_user(self) -> Union[BaseMessage, None]:
+        """
+        Returns the last message of a user or None if the user has no messages.
+        """
+        if not self.user_id:
+            raise ValueError("User ID is required to get the last message for a user.")
+
+        query, items = {}, []
+
+        query["UserId"] = self.user_id
+
+        try:
+            cursor = (
+                self.collection.find(query).limit(1).sort("_id", pymongo.DESCENDING)
+            )
+            return cursor[0]
+        except IndexError:
+            return None
+
+    def get_history(self) -> pymongo.cursor.Cursor:
+        query, items = {}, []
+
+        if self.conversation_id:
+            query["ConversationId"] = self.conversation_id
+
+        if self.user_id:
+            query["UserId"] = self.user_id
+
+        query["_id"] = {
+            "$gt": ObjectId.from_datetime(
+                datetime.now() - timedelta(hours=self.CONTEXT_HOURS)
+            )
+        }
+
+        try:
+            cursor = self.collection.find(query)
+        except errors.OperationFailure as error:
+            logger.error(error)
+
+        return cursor
+
+    @property
+    def messages(self) -> List[BaseMessage]:  # type: ignore
+        """Retrieve the messages from MongoDB"""
+        cursor = self.get_history()
+
+        if cursor:
+            # messages = cursor.limit(self.LIMIT)
+            items = [json.loads(document["Message"]) for document in cursor]
+
+        # Parse messages
+        messages = messages_from_dict(items)
+
+        return messages
+
+    def get_existing_conversation_id(self) -> Union[str, None]:
+        cursor = self.get_history()
+        if cursor:
+            try:
+                return cursor[0]["ConversationId"]
+            except IndexError:
+                return None
+        else:
+            return None
+
+    def add_message(self, message: BaseMessage) -> None:
+        """Append the message to the record in MongoDB"""
+        try:
+            self.collection.insert_one(
+                {
+                    "ConversationId": self.conversation_id,
+                    "UserId": self.user_id,
+                    "Message": json.dumps(message_to_dict(message)),
+                }
+            )
+        except errors.WriteError as err:
+            logger.error(err)
+
+    def clear(self) -> None:
+        """Clear session memory from MongoDB"""
+        try:
+            self.collection.delete_many({"ConversationId": self.conversation_id})
+        except errors.WriteError as err:
+            logger.error(err)
+
+    def new_conversation(self) -> str:
+        """Create a new conversation in MongoDB"""
+        self.conversation_id = str(uuid.uuid4())
+        # message = SystemMessage(prompts.AGENT_MEMORY_SYSTEM_PROMPT)
+        # self.add_message(message)
+        return str(self.conversation_id)
+
+    def exists(self) -> bool:
+        """Check if a conversation exists in MongoDB"""
+        try:
+            return (
+                self.collection.find_one(
+                    {
+                        "ConversationId": self.conversation_id,
+                        "UserId": self.user_id,
+                    }
+                )
+                is not None
+            )
+        except errors.OperationFailure as error:
+            logger.error(error)
+            return False
+
+    def update_feedback(
+        self, feedback_score: int, feedback_detail: Optional[str]
+    ) -> Union[str, None]:
+        if not self.conversation_id:
+            raise ValueError("Conversation ID is required to update feedback.")
+
+        updated_count = 0
+
+        try:
+            updated_result = self.collection.update_many(
+                {"ConversationId": self.conversation_id},
+                {
+                    "$set": {
+                        "feedback_score": feedback_score,
+                        "feedback_detail": feedback_detail,
+                        "feedback_timestamp": datetime.now(),
+                    }
+                },
+            )
+            updated_count = updated_result.modified_count
+
+        except errors.WriteError as err:
+            logger.error(err)
+
+        return updated_count
     
 
 async def init_db():

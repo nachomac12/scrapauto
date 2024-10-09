@@ -53,24 +53,24 @@ async def validation_exception_handler(request, exc):
     )
 
 
-class CarInfoAsk:
+class CarInfoAsk(BaseModel):
     question: str
     conversation_id: int
 
 
-class CarInfoAnswer:
+class CarInfoAnswer(BaseModel):
     answer: str
     conversation_id: int
 
 
 # Define the main route
-@app.post("/ask", response_model=CarInfoAsk)
+@app.post("/ask", response_model=CarInfoAnswer)
 async def ask_question(question_body: CarInfoAsk):
     # Initialize parser agent
     complex_agent = ComplexAgent()
 
     answer = await complex_agent.ask(
-        CarInfoAsk.question, "test", CarInfoAsk.conversation_id
+        question_body.question, "test", question_body.conversation_id
     )
 
-    return CarInfoAnswer(answer=answer, conversation_id=CarInfoAsk.conversation_id)
+    return CarInfoAnswer(answer=answer, conversation_id=question_body.conversation_id)

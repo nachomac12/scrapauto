@@ -76,3 +76,13 @@ class SimpleAutoDB(SimpleAuto):
         title="Fecha de actualización",
         description="Fecha en la que se actualizó el registro",
     )
+
+
+class DolarValues(BaseModel):
+    """Valores del dolar para la venta."""
+    blue: str = Field(title="Valor del dólar blue")
+    oficial: str = Field(title="Valor del dólar oficial")
+    mep: str = Field(title="Valor del dólar MEP/Bolsa")
+    contado_con_liqui: str = Field(title="Valor del dólar contado con liqui")
+    cripto: str = Field(title="Valor del dólar en criptomonedas")
+    tarjeta: str = Field(title="Valor del dólar en tarjeta")
