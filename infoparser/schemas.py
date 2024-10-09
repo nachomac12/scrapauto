@@ -21,6 +21,8 @@ class AutoRawDB(BaseModel):
 
 
 class SimpleAuto(BaseModel):
+    precio: float = Field(title="Precio del auto")
+    moneda: str = Field(title="Moneda del precio", description="Por ejemplo 'ARS', 'USD', etc. Si no se puede deducir, utilizar ARS por defecto.")
     url: str = Field(title="URL del anuncio")
     source: str = Field(
         title="Fuente del anuncio",

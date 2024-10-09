@@ -17,6 +17,7 @@ dependencies = [
 ]
 
 [tool.uv]
+package = false
 dev-dependencies = [
     "ipython>=8.28.0",
     "mypy>=1.11.2",
