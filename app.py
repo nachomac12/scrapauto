@@ -6,9 +6,9 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
+from complex_agent.complex_agent import ComplexAgent
 
 # Custom modules
-from infoparser.parser_agent import CarParserAgent
 from infoparser.schemas import SimpleAutoDB
 
 # Initialize FastAPI app
@@ -53,23 +53,24 @@ async def validation_exception_handler(request, exc):
     )
 
 
+class CarInfoAsk:
+    question: str
+    conversation_id: int
+
+
+class CarInfoAnswer:
+    answer: str
+    conversation_id: int
+
+
 # Define the main route
-@app.post("/extract-single", response_model=CarInfosResponse)
-async def extract_car_info(request: CarInfoRequest):
+@app.post("/ask", response_model=CarInfoAsk)
+async def ask_question(question_body: CarInfoAsk):
     # Initialize parser agent
-    parser_agent = CarParserAgent()
+    complex_agent = ComplexAgent()
 
-    cars_info = await parser_agent.parse_car_info(car_info_id=request.car_info_id)
+    answer = await complex_agent.ask(
+        CarInfoAsk.question, "test", CarInfoAsk.conversation_id
+    )
 
-    return CarInfoResponse(car_info=cars_info)
-
-
-# Define the main route
-@app.post("/extract-all", response_model=CarInfosResponse)
-async def extract_car_info(offset: int = 0, limit: int = 10):
-    # Initialize parser agent
-    parser_agent = CarParserAgent()
-
-    cars_infos = await parser_agent.parse_car_infos(offset=offset, limit=limit)
-
-    return CarInfoResponse(car_infos=cars_infos)
+    return CarInfoAnswer(answer=answer, conversation_id=CarInfoAsk.conversation_id)
