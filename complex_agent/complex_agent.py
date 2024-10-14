@@ -20,7 +20,7 @@ from infoparser.crud_auto import MongoDBChatMessageHistory
 
 logger = logging.getLogger(__name__)
 
-MODEL = "gpt-4o"
+MODEL = os.getenv("AGENT_MODEL")
 TEMPERATURE_MAIN_AGENT = 0.25
 logger.info(f"Using LLM model: {MODEL} with temperature {TEMPERATURE_MAIN_AGENT}")
 llm = ChatOpenAI(model=MODEL, temperature=TEMPERATURE_MAIN_AGENT)

@@ -9,8 +9,9 @@ class AutoRaw(BaseModel):
     extracted: bool = Field(title="Si ya fue extraído o no", default=False)
 
 
-class AutoRawDB(BaseModel):
+class AutoRawDB(AutoRaw):
     id: str = Field(title="ID de la base de datos", alias="_id")
+    extracted_car_id: Optional[str] = Field(title="ID del auto extraído", alias="extracted_car_id", default=None)
     created_at: datetime = Field(
         title="Fecha de creación",
         description="Fecha en la que se creó el registro",
@@ -63,6 +64,10 @@ class SimpleAuto(BaseModel):
     other_info: Optional[str] = Field(
         title="Otra información",
         description="Cualquier otra información relevante del auto",
+    )
+    ignore: bool = Field(
+        title="Si se debe ignorar el auto",
+        description="Si se debe ignorar el auto en el caso de que el vendedor solo financie el auto en cuotas.",
     )
 
 

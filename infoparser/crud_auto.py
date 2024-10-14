@@ -2,7 +2,7 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Union
-from .schemas import SimpleAuto, SimpleAutoDB, AutoRaw
+from .schemas import SimpleAuto, SimpleAutoDB, AutoRaw, AutoRawDB
 import dotenv
 import os
 from bson import ObjectId
@@ -60,11 +60,18 @@ class AutoDataBaseCRUD:
         self.autos_metadata_collection = self.db["autos_metadata"]
         self.autos_raw_collection = self.db["autos_raw"]
 
-    async def insert_raw_car(self, car: SimpleAuto) -> dict:
-        car_dict = car.model_dump()
+    async def insert_raw_car(self, raw_car_data: str) -> AutoRawDB:
+        current_time = datetime.now(timezone.utc)
+        car_dict = {
+            "text": raw_car_data,
+            "created_at": current_time,
+            "updated_at": current_time,
+            "extracted": False,
+            "extracted_car_id": None,
+        }
         result = await self.autos_raw_collection.insert_one(car_dict)
-        car_dict["_id"] = result.inserted_id
-        return car_dict
+        car_dict["_id"] = str(result.inserted_id)
+        return AutoRawDB(**car_dict)
 
     async def get_raw_car_by_id(self, car_id: str) -> Optional[AutoRaw]:
         try:
@@ -77,28 +84,30 @@ class AutoDataBaseCRUD:
             return AutoRaw(**car)
         return None
 
-    async def get_raw_cars_not_extracted(self, offset: int, limit: int) -> List[AutoRaw]:
+    async def get_raw_cars_not_extracted(self, offset: int, limit: int) -> List[AutoRawDB]:
         cursor = self.autos_raw_collection.find({"extracted": False}).skip(offset).limit(limit)
         cars = []
         async for car in cursor:
-            cars.append(AutoRaw(**car))
+            car["_id"] = str(car["_id"])
+            cars.append(AutoRawDB(**car))
         return cars
 
-    async def insert_car(self, car: SimpleAuto) -> SimpleAutoDB:
+    async def insert_car(self, car: SimpleAuto, raw_car_id: str) -> SimpleAutoDB:
         car_dict = car.model_dump()
         current_time = datetime.now(timezone.utc)
         car_dict["created_at"] = current_time
         car_dict["updated_at"] = current_time
         result = await self.autos_collection.insert_one(car_dict)
         car_dict["_id"] = str(result.inserted_id)
+        await self.autos_raw_collection.find_one_and_update(
+            {"_id": ObjectId(raw_car_id)},
+            {"$set": {"extracted": True, "updated_at": current_time, "extracted_car_id": car_dict["_id"]}},
+        )
         return SimpleAutoDB(**car_dict)
     
     async def exists_car(self, car: SimpleAuto) -> bool:
         result = await self.autos_collection.find_one({"external_id": car.external_id})
         return result is not None
-    
-    async def close_connection(self):
-        self.db.client.close()
 
     async def get_field_unique_values(self, field: str) -> List[Any]:
         cursor = self.autos_collection.find({}, {field: 1})
@@ -116,20 +125,23 @@ class AutoDataBaseCRUD:
             cars.append(SimpleAutoDB.model_validate(car))
         return cars
     
-    def get_chat_history(cls, conversation_id=None, user_id=None):
-        params = {
-            "tls": "true" if MONGO_TLS_ENABLED else "false",
-            "tlsAllowInvalidCertificates": "true",
-            "retryWrites": "false",
-        }
-        return MongoDBChatMessageHistory(
-            conversation_id=conversation_id,
-            user_id=user_id,
-            connection_string=f"{cls.DB_URI}?{urlencode(params)}",
-            database_name=cls.DB_NAME,
-        )
-     
-        
+    async def insert_many_raw_cars(self, raw_car_data_list: List[str]) -> List[AutoRawDB]:
+        current_time = datetime.now(timezone.utc)
+        car_dicts = [
+            {
+                "text": raw_car_data,
+                "created_at": current_time,
+                "updated_at": current_time,
+                "extracted": False,
+            }
+            for raw_car_data in raw_car_data_list
+        ]
+        result = await self.autos_raw_collection.insert_many(car_dicts)
+        for i, inserted_id in enumerate(result.inserted_ids):
+            car_dicts[i]["_id"] = str(inserted_id)
+        return [AutoRawDB(**car_dict) for car_dict in car_dicts]
+
+
 class MongoDBChatMessageHistory(BaseChatMessageHistory):
     """Chat message history that stores history in MongoDB."""
 

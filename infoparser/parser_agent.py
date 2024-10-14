@@ -1,4 +1,4 @@
-import logging
+import asyncio
 from typing import List, Optional
 from openai import AsyncOpenAI
 
@@ -12,7 +12,7 @@ load_dotenv()
 
 logger = setup_logger(__name__)
 
-MODEL = "gpt-4o-2024-08-06"
+MODEL = os.getenv("PARSER_MODEL")
 TEMPERATURE = os.getenv("TEMPERATURE_CONVERTIDOR_PROMPT")
 logger.info(f"Using LLM model: {MODEL}")
 
@@ -42,12 +42,12 @@ class DolarParserAgent:
 class CarParserAgent:
     # Initialize OpenAI model
     def __init__(
-        self, base_prompt="Extraé la información del auto en el siguiente texto."
+        self,
+        base_prompt="Extraé la información del auto en el siguiente texto. Si en other info el vendedor se refiere a financiamiento SOLO en cuotas, marca la flag ignore en True."
     ) -> None:
         self.base_prompt = base_prompt
 
     async def _extract_car_info(self, car_info: str) -> SimpleAuto:
-
         final_prompt = self.base_prompt
 
         # Use the async OpenAI client to make a non-blocking request
@@ -69,24 +69,30 @@ class CarParserAgent:
 
         return event
 
-    async def _save_extracted_car_info(self, car_info: SimpleAuto) -> SimpleAuto:
+    async def _save_extracted_car_info(self, car_info: SimpleAuto, raw_car_id: str) -> SimpleAuto:
         autos_crud = await init_db()
-        if await autos_crud.exists_car(car_info):
-            logger.info(f"Car with external_id {car_info.external_id} already exists")
-            return car_info
-        return await autos_crud.insert_car(car_info)
+        return await autos_crud.insert_car(car_info, raw_car_id)
 
-    async def parse_car_info(self, car_info: str) -> SimpleAuto:
+    async def parse_car_info(self, car_info: str, raw_car_id: str) -> Optional[SimpleAuto]:
         car = await self._extract_car_info(car_info)
-        return await self._save_extracted_car_info(car)
+        if car is None:
+            return None
+        return await self._save_extracted_car_info(car, raw_car_id)
 
     async def parse_car_infos(self, offset=0, limit=10) -> List[SimpleAuto]:
         autos_crud = await init_db()
         car_infos = await autos_crud.get_raw_cars_not_extracted(offset, limit)
+
+        if len(car_infos) == 0:
+            logger.info("No cars to parse")
+            return []
         
         simples_autos = []
+        tasks = []
         for car_info_raw in car_infos:
-            car_info = await self._extract_car_info(car_info_raw.text)
-            simples_autos.append(await self._save_extracted_car_info(car_info))
+            tasks.append(self.parse_car_info(car_info_raw.text, car_info_raw.id))
+        
+        simples_autos = await asyncio.gather(*tasks)
 
-        return simples_autos
+        return [car for car in simples_autos if car is not None]
+ 
