@@ -38,19 +38,16 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-      args:
-        PASSWORD_BASIC_AUTH: ${PASSWORD_BASIC_AUTH}
-    image: nginx:latest
     container_name: nginx-prd
     ports:
-      - "80:80"  # Exponemos el puerto 80 para acceder al reverse proxy
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/.htpasswd:/etc/nginx/.htpasswd
+      - "80:80"
     depends_on:
       - backend
+    environment:
+      PASSWORD_BASIC_AUTH: ${PASSWORD_BASIC_AUTH}
     networks:
       - autos-network
+
 
   mongo:
     image: mongo
