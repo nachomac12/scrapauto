@@ -84,7 +84,7 @@ async def aget_price_range(atributos: dict) -> Tuple[float, float]:
             atributos[field] = []  # Default to an empty list if the field is missing
 
     # Build a mongo filter based on OR conditions for each attribute and AND conditions for all attributes
-    filter = {}
+    filter = {"ignore": False}
     for key, values in atributos.items():
         if len(values) == 0:
             continue
