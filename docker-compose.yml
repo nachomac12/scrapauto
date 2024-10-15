@@ -1,3 +1,5 @@
+version: '3.8'  # Asegúrate de especificar la versión de Compose
+
 services:
   backend:
     build:
@@ -5,11 +7,11 @@ services:
       dockerfile: Dockerfile
     image: backend-prd:latest
     container_name: backend-prd
-    ports:
-      - "8100:8100"
+    expose:
+      - "8100"
     volumes:
-      - .:/code  # Monta el directorio actual en /code en el contenedor
-      - /code/.venv  # Monta un volumen anónimo sobre /code/.venv en el contenedor
+      - .:/code
+      - /code/.venv
     depends_on:
       - mongo
       - chroma
@@ -28,7 +30,27 @@ services:
         "--port",
         "8100",
         "--reload",
+        "--workers",
+        "2"
       ]
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+      args:
+        PASSWORD_BASIC_AUTH: ${PASSWORD_BASIC_AUTH}
+    image: nginx:latest
+    container_name: nginx-prd
+    ports:
+      - "80:80"  # Exponemos el puerto 80 para acceder al reverse proxy
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/.htpasswd:/etc/nginx/.htpasswd
+    depends_on:
+      - backend
+    networks:
+      - autos-network
 
   mongo:
     image: mongo
