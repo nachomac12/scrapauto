@@ -3,3 +3,4 @@
 __pycache__
 .env
 errors.log
+nginx/certbot/conf.d/*
