@@ -49,7 +49,7 @@ services:
       - certbot-var:/var/lib/letsencrypt
       - nginx-certbot:/var/www/certbot
       - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/.htpasswd:/etc/nginx/.htpasswd
+      # - ./nginx/.htpasswd:/etc/nginx/.htpasswd
     networks:
       - autos-network
 
