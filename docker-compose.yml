@@ -3,8 +3,8 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile
-    image: backend-prd:latest
-    container_name: backend-prd
+    image: backend:latest
+    container_name: backend
     expose:
       - "8100"
     volumes:
@@ -32,40 +32,9 @@ services:
         "2"
       ]
 
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    container_name: nginx-prd
-    ports:
-      - "80:80"
-      - "443:443"
-    depends_on:
-      - backend
-    environment:
-      PASSWORD_BASIC_AUTH: ${PASSWORD_BASIC_AUTH}
-    volumes:
-      - certbot-etc:/etc/letsencrypt
-      - certbot-var:/var/lib/letsencrypt
-      - nginx-certbot:/var/www/certbot
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      # - ./nginx/.htpasswd:/etc/nginx/.htpasswd
-    networks:
-      - autos-network
-
-  certbot:
-    image: certbot/certbot
-    container_name: certbot
-    volumes:
-      - certbot-etc:/etc/letsencrypt
-      - certbot-var:/var/lib/letsencrypt
-      - nginx-certbot:/var/www/certbot
-    command: certonly --webroot --webroot-path=/var/www/certbot --email maciasignacio0@gmail.com --agree-tos --no-eff-email -d autosmvp.samaproject.ar
-
-
   mongo:
     image: mongo
-    container_name: mongo-prd
+    container_name: mongo
     volumes:
       - mongo_data:/data/db
     environment:
@@ -78,7 +47,7 @@ services:
 
   chroma:
     image: ghcr.io/chroma-core/chroma
-    container_name: chroma-prd
+    container_name: chroma
     expose:
       - "8000"
     environment:
@@ -93,10 +62,6 @@ services:
 volumes:
   mongo_data:
   chroma_data:
-  certbot-etc:
-  certbot-var:
-  nginx-certbot:
-
 
 networks:
   autos-network:

@@ -1,0 +1,42 @@
+services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    environment:
+      PASSWORD_BASIC_AUTH: ${PASSWORD_BASIC_AUTH}
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - nginx-certbot:/var/www/certbot
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - autos-network
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - nginx-certbot:/var/www/certbot
+    command: >
+      certonly --webroot
+      --webroot-path=/var/www/certbot
+      --email maciasignacio0@gmail.com
+      --agree-tos
+      --no-eff-email
+      -d autosmvp.samaproject.ar
+    networks:
+      - autos-network
+
+volumes:
+  certbot-etc:
+  certbot-var:
+  nginx-certbot:
