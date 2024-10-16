@@ -99,7 +99,7 @@ async def aget_price_range(atributos: dict) -> Tuple[float, float]:
     print("-" * 20)
     cars = await db.get_cars_by_filter(filter)
     original_prices = [
-        {"value": car.precio, "moneda": car.moneda, "id": car.id} for car in cars
+        {"value": car.precio, "moneda": car.moneda, "id": car.id, "url": car.url} for car in cars
     ]
 
     if not original_prices:
@@ -142,13 +142,17 @@ async def aget_price_range(atributos: dict) -> Tuple[float, float]:
         "min_price_value_ars": min_price_dict_ars["value"],
         "min_price_currency_ars": min_price_dict_ars["moneda"],
         "min_price_car_id_ars": min_price_dict_ars["id"],
+        "min_price_car_url_ars": min_price_dict_ars["url"],
         "max_price_value_ars": max_price_dict_ars["value"],
         "max_price_currency_ars": max_price_dict_ars["moneda"],
         "max_price_car_id_ars": max_price_dict_ars["id"],
+        "max_price_car_url_ars": max_price_dict_ars["url"],
         "min_price_value_usd": min_price_dict_usd["value"],
         "min_price_currency_usd": min_price_dict_usd["moneda"],
         "min_price_car_id_usd": min_price_dict_usd["id"],
+        "min_price_car_url_usd": min_price_dict_usd["url"],
         "max_price_value_usd": max_price_dict_usd["value"],
         "max_price_currency_usd": max_price_dict_usd["moneda"],
         "max_price_car_id_usd": max_price_dict_usd["id"],
+        "max_price_car_url_usd": max_price_dict_usd["url"],
     }
