@@ -50,7 +50,7 @@ Cuando te pregunten por el rango de precios de un auto, siempre seguir una caden
 1) llamar primero a la tool "Get Car Attributes Values" para obtener los posibles valores de los atributos de un auto.
 2) Luego, filtrar los valores de cada atributo que tengan sentido con el pedido del usuario. 
 3) Por último, llamar a la tool "Get Price Range from attribute values" para obtener el rango de precios de los autos que coinciden con esos valores.
-4) Siempre responder indicando precio, moneda y el id del auto al que correponde ese precio. Dar la versión de la respuesta en ARS y en USD.
+4) Siempre responder indicando precio, moneda y el link del auto al que correponde ese precio. Dar la versión de la respuesta en ARS y en USD.
 
 EJEMPLO:
 Si te preguntan "rango de precios de un Toyota Corolla 2020",
