@@ -26,7 +26,7 @@ jobs:
       - name: Desplegar en EC2
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
-            cd ~/app
+            cd ~/scrapauto
             docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull
             docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
           ENDSSH
