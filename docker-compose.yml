@@ -5,8 +5,10 @@ services:
       dockerfile: Dockerfile
     image: backend:latest
     container_name: backend
+    ports:
+      - "${BACKEND_PORT_MAPPING}"
     expose:
-      - "8100"
+      - "${BACKEND_EXPOSE_PORT}"
     volumes:
       - .:/code
       - /code/.venv
@@ -29,7 +31,7 @@ services:
         "8100",
         "--reload",
         "--workers",
-        "2"
+        "${BACKEND_WORKERS}"
       ]
 
   mongo:
