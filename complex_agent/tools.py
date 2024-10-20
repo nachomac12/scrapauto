@@ -1,6 +1,6 @@
 from typing import Any, List, Literal, Tuple, Dict
-from infoparser.crud_auto import init_db, AutoDataBaseCRUD
-from scraper.dolar import get_dolar_blue_value
+from infoparser.crud_auto import init_db, AutoDataBaseCRUDAsync, TasksDB
+from extractors.dolar import get_dolar_blue_value
 from infoparser.schemas import DolarValues
 
 
@@ -53,7 +53,7 @@ async def aget_car_attributes(
         ]:
             attributes[value] = {"possible_values": []}  # Corrected from key to value
 
-    db: AutoDataBaseCRUD = await init_db()
+    db: AutoDataBaseCRUDAsync = await init_db()
     # Paso 2: Por cada atributo detectado, buscar en la base de datos todos los posibles valores para ese atributo
     for key in attributes.keys():
         values = await db.get_field_unique_values(key)
@@ -93,7 +93,7 @@ async def aget_price_range(atributos: dict) -> Tuple[float, float]:
     if not filter:
         return 0.0, 0.0
 
-    db: AutoDataBaseCRUD = await init_db()
+    db: AutoDataBaseCRUDAsync = await init_db()
     print("-" * 20)
     print(filter)
     print("-" * 20)
@@ -106,7 +106,7 @@ async def aget_price_range(atributos: dict) -> Tuple[float, float]:
         return 0.0, 0.0  # Return a default range if no prices are found
 
     # Dolar price:
-    dolar_values: DolarValues = await get_dolar_blue_value()
+    dolar_values = TasksDB().get_dolar_price()
 
     prices_ars = []
     prices_usd = []

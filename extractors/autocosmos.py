@@ -6,12 +6,12 @@ import math
 
 from logger import setup_logger
 
-from infoparser.crud_auto import AutoDataBaseCRUD, init_db
+from infoparser.crud_auto import AutoDataBaseCRUDAsync, init_db
 
 logger = setup_logger(__name__)
 
 
-class AutocosmosScraper:
+class AutocosmosExtractor:
     def __init__(self):
         self.total_pages = None
 

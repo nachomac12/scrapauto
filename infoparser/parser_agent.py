@@ -18,7 +18,7 @@ logger.info(f"Using LLM model: {MODEL}")
 
 
 class DolarParserAgent:
-    def __init__(self, base_prompt="Extrae los diferentes valores del dolar en el siguiente texto, cada uno debe ser un decimal."):
+    def __init__(self, base_prompt="Extrae los diferentes valores del dolar en el siguiente texto, cada uno debe ser un float."):
         self.base_prompt = base_prompt
 
     async def _extract_dolar_info(self, dolar_info: str) -> DolarValues:

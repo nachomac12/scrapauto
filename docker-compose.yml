@@ -61,6 +61,44 @@ services:
     networks:
       - autos-network
 
+  redis:
+    image: redis:6-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - autos-network
+
+  celery_worker:
+    build: .
+    container_name: celery-worker
+    command: uv run celery -A celery_app.app worker --loglevel=info
+    volumes:
+      - .:/code
+      - /code/.venv
+    depends_on:
+      - redis
+      - mongo
+    env_file:
+      - .env
+    networks:
+      - autos-network
+
+  celery_beat:
+    build: .
+    container_name: celery-beat
+    command: uv run celery -A celery_app.app beat --loglevel=info
+    volumes:
+      - .:/code
+      - /code/.venv
+    depends_on:
+      - redis
+      - mongo
+    env_file:
+      - .env
+    networks:
+      - autos-network
+
 volumes:
   mongo_data:
   chroma_data:
