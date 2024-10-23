@@ -2,11 +2,13 @@
 
 import argparse
 import asyncio
-from scraper.autocosmos import AutocosmosScraper
+from extractors.autocosmos import AutocosmosExtractor
+from extractors.meli import MeliExtractor
 
 
 map_scrapers = {
-    "autocosmos": AutocosmosScraper(),
+    "autocosmos": AutocosmosExtractor(),
+    "meli": MeliExtractor(),
 }
 
 
@@ -30,7 +32,13 @@ Examples:
         help="List of sites to scrape (default: all)",
         dest="sites"
     )
-    parser.add_argument("-f", "--from-page", type=int, default=1, help="From page to scrape")
+    def check_positive(value):
+        ivalue = int(value)
+        if ivalue < 1:
+            raise argparse.ArgumentTypeError(f"{value} is an invalid positive int value")
+        return ivalue
+
+    parser.add_argument("-f", "--from-page", type=check_positive, default=1, help="From page to scrape")
     args = parser.parse_args()
 
     scrapers = [map_scrapers[site] for site in args.sites]

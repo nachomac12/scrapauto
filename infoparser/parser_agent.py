@@ -18,7 +18,7 @@ logger.info(f"Using LLM model: {MODEL}")
 
 
 class DolarParserAgent:
-    def __init__(self, base_prompt="Extrae los diferentes valores del dolar en el siguiente texto, cada uno debe ser un decimal."):
+    def __init__(self, base_prompt="Extrae los diferentes valores del dolar en el siguiente texto, cada uno debe ser un float."):
         self.base_prompt = base_prompt
 
     async def _extract_dolar_info(self, dolar_info: str) -> DolarValues:
@@ -43,7 +43,7 @@ class CarParserAgent:
     # Initialize OpenAI model
     def __init__(
         self,
-        base_prompt="Extraé la información del auto en el siguiente texto. Si en other info el vendedor se refiere a financiamiento SOLO en cuotas, marca la flag ignore en True."
+        base_prompt="Extraé la información del auto en el siguiente texto. Si el vendedor se refiere a financiamiento SOLO en cuotas, marca la flag ignore en True."
     ) -> None:
         self.base_prompt = base_prompt
 

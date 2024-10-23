@@ -7,6 +7,7 @@ from typing import Optional
 class AutoRaw(BaseModel):
     text: str = Field(title="Texto del anuncio")
     extracted: bool = Field(title="Si ya fue extraído o no", default=False)
+    marked_for_extraction: bool = Field(title="Si está marcado para extraer", default=False)
 
 
 class AutoRawDB(AutoRaw):
@@ -85,9 +86,25 @@ class SimpleAutoDB(SimpleAuto):
 
 class DolarValues(BaseModel):
     """Valores del dolar para la venta."""
-    blue: Decimal = Field(title="Valor del dólar blue")
-    oficial: Decimal = Field(title="Valor del dólar oficial")
-    mep: Decimal = Field(title="Valor del dólar MEP/Bolsa")
-    contado_con_liqui: Decimal = Field(title="Valor del dólar contado con liqui")
-    cripto: Decimal = Field(title="Valor del dólar en criptomonedas")
-    tarjeta: Decimal = Field(title="Valor del dólar en tarjeta")
+    blue: float = Field(title="Valor del dólar blue")
+    oficial: float = Field(title="Valor del dólar oficial")
+    mep: float = Field(title="Valor del dólar MEP/Bolsa")
+    contado_con_liqui: float = Field(title="Valor del dólar contado con liqui")
+    cripto: float = Field(title="Valor del dólar en criptomonedas")
+    tarjeta: float = Field(title="Valor del dólar en tarjeta")
+    
+
+class DolarValuesDB(BaseModel):
+    id: str = Field(title="ID de la base de datos", alias="_id")
+    created_at: datetime = Field(title="Fecha de creación", description="Fecha en la que se creó el registro")
+
+
+class OpenAIBatch(BaseModel):
+    batch_id: str = Field(title="ID del batch")
+    status: str = Field(title="Estado del batch")
+
+
+class OpenAIBatchDB(OpenAIBatch):
+    id: str = Field(title="ID de la base de datos", alias="_id")
+    created_at: str = Field(title="Fecha de creación", description="Fecha en la que se creó el registro")
+    updated_at: str = Field(title="Fecha de actualización", description="Fecha en la que se actualizó el registro")

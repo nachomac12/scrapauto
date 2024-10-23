@@ -2,7 +2,7 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Union
-from .schemas import SimpleAuto, SimpleAutoDB, AutoRaw, AutoRawDB
+from .schemas import SimpleAuto, SimpleAutoDB, AutoRaw, AutoRawDB, DolarValues, DolarValuesDB, OpenAIBatch, OpenAIBatchDB
 import dotenv
 import os
 from bson import ObjectId
@@ -11,7 +11,6 @@ from pymongo import MongoClient, errors
 import pymongo
 from langchain_core.messages import (
     BaseMessage,
-    SystemMessage,
     messages_from_dict,
     message_to_dict,
 )
@@ -53,7 +52,55 @@ class DataBase:
         return cls.client[name]
 
 
-class AutoDataBaseCRUD:
+class AutoDataBaseCRUDSync:
+    def __init__(self):
+        params = {
+            "tls": "true" if MONGO_TLS_ENABLED else "false",
+            "tlsAllowInvalidCertificates": "true",
+            "retryWrites": "false",
+        }
+        self.connection_string = f"{DB_URI}?{urlencode(params)}"
+        try:
+            self.client: MongoClient = MongoClient(self.connection_string)
+        except errors.ConnectionFailure as error:
+            logger.error(error)
+
+        self.db = self.client[DB_NAME]
+        self.autos_collection = self.db["autos"]
+        self.autos_raw_collection = self.db["autos_raw"]
+
+    def get_raw_cars_not_extracted(self, limit: int) -> List[AutoRawDB]:
+        cursor = self.autos_raw_collection.find(
+            {"extracted": False, "marked_for_extraction": False}
+        ).limit(limit)
+        cars = []
+        for car in cursor:
+            car["_id"] = str(car["_id"])
+            cars.append(AutoRawDB(**car))
+        return cars
+    
+    def mark_raw_cars_for_extraction(self, raw_car_ids: List[str]) -> None:
+        object_ids = [ObjectId(car_id) for car_id in raw_car_ids]
+        self.autos_raw_collection.update_many(
+            {"_id": {"$in": object_ids}},
+            {"$set": {"marked_for_extraction": True}},
+        )
+
+    def insert_car(self, car: SimpleAuto, raw_car_id: str) -> SimpleAutoDB:
+        car_dict = car.model_dump()
+        current_time = datetime.now(timezone.utc)
+        car_dict["created_at"] = current_time
+        car_dict["updated_at"] = current_time
+        result = self.autos_collection.insert_one(car_dict)
+        car_dict["_id"] = str(result.inserted_id)
+        self.autos_raw_collection.find_one_and_update(
+            {"_id": ObjectId(raw_car_id)},
+            {"$set": {"extracted": True, "updated_at": current_time, "extracted_car_id": car_dict["_id"]}},
+        )
+        return SimpleAutoDB(**car_dict)
+
+
+class AutoDataBaseCRUDAsync:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db: AsyncIOMotorDatabase = db
         self.autos_collection = self.db["autos"]
@@ -141,6 +188,65 @@ class AutoDataBaseCRUD:
             car_dicts[i]["_id"] = str(inserted_id)
         return [AutoRawDB(**car_dict) for car_dict in car_dicts]
 
+
+class TasksDB:
+    def __init__(self):
+        params = {
+            "tls": "true" if MONGO_TLS_ENABLED else "false",
+            "tlsAllowInvalidCertificates": "true",
+            "retryWrites": "false",
+        }
+        self.connection_string = f"{DB_URI}?{urlencode(params)}"
+        try:
+            self.client: MongoClient = MongoClient(self.connection_string)
+        except errors.ConnectionFailure as error:
+            logger.error(error)
+
+        self.db = self.client[DB_NAME]
+        self.dolar_collection = self.db["dolar_prices"]
+        self.openai_batches = self.db["openai_batches"]
+
+    def insert_dolar_price(self, dolar_price: DolarValues) -> None:
+        dolar_dict = dolar_price.model_dump()
+        dolar_dict["created_at"] = datetime.now(timezone.utc)
+        try:
+            self.dolar_collection.insert_one(dolar_dict)
+            logger.info("Dolar price inserted successfully.")
+        except errors.WriteError as err:
+            logger.error(f"Failed to insert dolar price: {err}")
+
+    def get_dolar_price(self) -> Optional[DolarValuesDB]:
+        dolar = self.dolar_collection.find_one(sort=[("created_at", pymongo.DESCENDING)])
+        if dolar:
+            return DolarValuesDB.model_validate(dolar)
+        return None
+    
+    def upsert_openai_batch(self, batch: OpenAIBatch) -> None:
+        batch_dict = batch.model_dump()
+        current_time = datetime.now(timezone.utc)
+        batch_dict["created_at"] = current_time
+        batch_dict["updated_at"] = current_time
+        try:
+            self.openai_batches.update_one(
+                {"batch_id": batch.batch_id},
+                {"$set": batch_dict},
+                upsert=True
+            )
+        except Exception as exc:
+            logger.error(f"Failed to upsert OpenAI batch: {exc}")
+        
+    def get_openai_batches_in_progress(self) -> List[OpenAIBatch]:
+        try:
+            cursor = self.openai_batches.find({"status": {"$in": ["in_progress", "validating", "finalizing"]}})
+            batches = []
+            for batch in cursor:
+                batch["_id"] = str(batch["_id"])
+                batches.append(OpenAIBatch(**batch))
+            return batches
+        except Exception as exc:
+            logger.error(f"Failed to retrieve OpenAI batches in progress: {exc}")
+            return []
+    
 
 class MongoDBChatMessageHistory(BaseChatMessageHistory):
     """Chat message history that stores history in MongoDB."""
@@ -311,5 +417,5 @@ class MongoDBChatMessageHistory(BaseChatMessageHistory):
 async def init_db():
     await DataBase.initialize(DB_URI, tls=MONGO_TLS_ENABLED)
     db = DataBase.get_database(DB_NAME)
-    autos_crud = AutoDataBaseCRUD(db)
+    autos_crud = AutoDataBaseCRUDAsync(db)
     return autos_crud
