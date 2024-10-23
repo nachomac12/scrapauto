@@ -15,8 +15,13 @@ logger = setup_logger(__name__)
 
 
 BATCH_FILES_DIR = os.getenv('BATCH_FILES_DIR', '/tmp/batch_files')
-RAW_CARS_TO_PROCESS = int(os.getenv('RAW_CARS_TO_PROCESS'))
+MAX_BATCH_TOKENS = int(os.getenv('MAX_BATCH_TOKENS'))
+
+PARSER_MODEL = os.getenv('PARSER_MODEL')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+RAW_AUTOS_TO_EXTRACT = 100
+MAX_CARS_PER_BATCH = 500
 
 
 @celery_app.task
@@ -45,14 +50,14 @@ def _create_batch_file(file_name: str) -> None:
             status=batch_res.status,
         )
     )
+    logger.info(f"Batch created with id: {batch_res.id}")
 
 
 @celery_app.task
 def process_not_extracted_cars() -> None:
-    offset = 0
-    proc_car_counter = 0
-
     file_name = f"{BATCH_FILES_DIR}/batch-{uuid.uuid4()}.jsonl"
+    total_cars = 0
+
     car_info_schema = {
         "type": "json_schema",
         "json_schema": {
@@ -62,22 +67,32 @@ def process_not_extracted_cars() -> None:
     }
 
     while True:
-        # Getting just 100 cars at a time to avoid memory issues
-        cars = AutoDataBaseCRUDSync().get_raw_cars_not_extracted(100, offset)
+        cars = AutoDataBaseCRUDSync().get_raw_cars_not_extracted(RAW_AUTOS_TO_EXTRACT)
 
         if len(cars) == 0:
-            if proc_car_counter > 0:
+            if total_cars > 0:
                 _create_batch_file(file_name)
+            logger.info("No more cars to process, exiting...")
             return
-        
-        with open(file_name, "w") as f:
+
+        messages = []
+        with open(file_name, "a") as f:
             for car in cars:
+                car_messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Extraé la información del auto en el siguiente texto. "
+                            "Si en other info el vendedor se refiere a financiamiento "
+                            "SOLO en cuotas, marca la flag ignore en True."
+                        ),
+                    },
+                    {"role": "user", "content": car.text}
+                ]
+                messages += car_messages
                 body = {
-                    "model": "gpt-4o-mini",
-                    "messages": [
-                        {"role": "system", "content": "Extraé la información del auto en el siguiente texto. Si en other info el vendedor se refiere a financiamiento SOLO en cuotas, marca la flag ignore en True."},
-                        {"role": "user", "content": car.text}
-                    ],
+                    "model": PARSER_MODEL,
+                    "messages": car_messages,
                     "response_format": car_info_schema,
                     "temperature": 0.3,
                 }
@@ -88,23 +103,23 @@ def process_not_extracted_cars() -> None:
                     "body": body
                 }
                 f.write(json.dumps(jsonl_line) + "\n")
-                proc_car_counter += 1
+
+        total_cars += len(cars)
+        AutoDataBaseCRUDSync().mark_raw_cars_for_extraction([car.id for car in cars])
         
-        if proc_car_counter >= RAW_CARS_TO_PROCESS:
-            # TODO: replace this condition with batch file size > 100MB or 50k lines in order to avoid rate limits
-            # and handle pricing accordingly
-            # https://platform.openai.com/docs/guides/batch/rate-limits
+        if total_cars >= MAX_CARS_PER_BATCH:
             _create_batch_file(file_name)
-            return process_not_extracted_cars()
-
-        offset += 100
-
-
+            # Reset counters and file name
+            total_cars = 0
+            file_name = f"{BATCH_FILES_DIR}/batch-{uuid.uuid4()}.jsonl"
+        
+        
 @celery_app.task
 def process_extracted_cars() -> None:
     pending_batches = TasksDB().get_openai_batches_in_progress()
     
     if len(pending_batches) == 0:
+        logger.info("No batches to process")
         return
     
     for batch in pending_batches:
@@ -115,7 +130,7 @@ def process_extracted_cars() -> None:
         TasksDB().upsert_openai_batch(_upd_batch)
 
         if batch_res.status == "completed":
-            file_response = openai_client.files.retrieve(batch_res.output_file_id)
+            file_response = openai_client.files.content(batch_res.output_file_id)
             json_str: str = file_response.text
             lineas = json_str.strip().split('\n')
             for linea in lineas:
@@ -123,6 +138,6 @@ def process_extracted_cars() -> None:
                     dict_obj = json.loads(linea)
                     parsed_content = dict_obj["response"]["body"]["choices"][0]["message"]["content"]
                     car = SimpleAuto.model_validate_json(parsed_content)
-                    AutoDataBaseCRUDSync().insert_car(car)
+                    AutoDataBaseCRUDSync().insert_car(car, dict_obj["custom_id"])
                 except Exception as exc:
                     logger.error(f"Error: {exc}")

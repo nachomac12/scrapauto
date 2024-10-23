@@ -15,6 +15,7 @@ services:
     depends_on:
       - mongo
       - chroma
+      - redis
     env_file:
       - .env
     networks:
@@ -62,17 +63,19 @@ services:
       - autos-network
 
   redis:
-    image: redis:6-alpine
+    image: redis:latest
     container_name: redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - autos-network
 
   celery_worker:
     build: .
     container_name: celery-worker
-    command: uv run celery -A celery_app.app worker --loglevel=info
+    command: /bin/sh -c "mkdir -p ${BATCH_FILES_DIR} && uv run celery -A celery_app.app worker --loglevel=info"
     volumes:
       - .:/code
       - /code/.venv
@@ -102,6 +105,7 @@ services:
 volumes:
   mongo_data:
   chroma_data:
+  redis_data:
 
 networks:
   autos-network:

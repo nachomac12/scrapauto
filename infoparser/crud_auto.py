@@ -69,13 +69,22 @@ class AutoDataBaseCRUDSync:
         self.autos_collection = self.db["autos"]
         self.autos_raw_collection = self.db["autos_raw"]
 
-    def get_raw_cars_not_extracted(self, offset: int, limit: int) -> List[AutoRawDB]:
-        cursor = self.autos_raw_collection.find({"extracted": False}).skip(offset).limit(limit)
+    def get_raw_cars_not_extracted(self, limit: int) -> List[AutoRawDB]:
+        cursor = self.autos_raw_collection.find(
+            {"extracted": False, "marked_for_extraction": False}
+        ).limit(limit)
         cars = []
         for car in cursor:
             car["_id"] = str(car["_id"])
             cars.append(AutoRawDB(**car))
         return cars
+    
+    def mark_raw_cars_for_extraction(self, raw_car_ids: List[str]) -> None:
+        object_ids = [ObjectId(car_id) for car_id in raw_car_ids]
+        self.autos_raw_collection.update_many(
+            {"_id": {"$in": object_ids}},
+            {"$set": {"marked_for_extraction": True}},
+        )
 
     def insert_car(self, car: SimpleAuto, raw_car_id: str) -> SimpleAutoDB:
         car_dict = car.model_dump()
@@ -228,7 +237,7 @@ class TasksDB:
         
     def get_openai_batches_in_progress(self) -> List[OpenAIBatch]:
         try:
-            cursor = self.openai_batches.find({"status": "in_progress"})
+            cursor = self.openai_batches.find({"status": {"$in": ["in_progress", "validating", "finalizing"]}})
             batches = []
             for batch in cursor:
                 batch["_id"] = str(batch["_id"])

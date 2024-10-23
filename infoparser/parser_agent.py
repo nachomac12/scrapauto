@@ -43,7 +43,7 @@ class CarParserAgent:
     # Initialize OpenAI model
     def __init__(
         self,
-        base_prompt="Extraé la información del auto en el siguiente texto. Si en other info el vendedor se refiere a financiamiento SOLO en cuotas, marca la flag ignore en True."
+        base_prompt="Extraé la información del auto en el siguiente texto. Si el vendedor se refiere a financiamiento SOLO en cuotas, marca la flag ignore en True."
     ) -> None:
         self.base_prompt = base_prompt
 

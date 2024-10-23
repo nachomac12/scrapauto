@@ -7,6 +7,7 @@ from typing import Optional
 class AutoRaw(BaseModel):
     text: str = Field(title="Texto del anuncio")
     extracted: bool = Field(title="Si ya fue extraído o no", default=False)
+    marked_for_extraction: bool = Field(title="Si está marcado para extraer", default=False)
 
 
 class AutoRawDB(AutoRaw):
